@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+  matomo1:
+    build:
+      context: .
+      dockerfile: Dockerfile.${MATOMO1_PHP_VERSION}
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /var/www/matomo
+    command: php -S 0.0.0.0:50001 -t .
+    networks:
+      - matomo_network
+    hostname: matomo1.local
+    ports:
+      - 50001:50001
+    volumes:
+      - ${MATOMO_PATH}:/var/www/matomo
+      - ${PLUGIN_PATH}:/var/www/matomo/plugins/ProtectTrackID
+    healthcheck:
+      test: ["CMD", "nc", "-vz", "127.0.0.1", "50001"]
+      interval: 3s
+      timeout: 1s
+      retries: 20
+  matomo2:
+    build:
+      context: .
+      dockerfile: Dockerfile.${MATOMO2_PHP_VERSION}
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /var/www/matomo
+    command: php -S 0.0.0.0:50002 -t .
+    networks:
+      - matomo_network
+    hostname: matomo2.local
+    ports:
+      - 50002:50002
+    volumes:
+      - ${MATOMO_PATH}:/var/www/matomo
+      - ${PLUGIN_PATH}:/var/www/matomo/plugins/ProtectTrackID
+    healthcheck:
+      test: ["CMD", "nc", "-vz", "127.0.0.1", "50002"]
+      interval: 3s
+      timeout: 1s
+      retries: 20
+  matomo3:
+    build:
+      context: .
+      dockerfile: Dockerfile.${MATOMO3_PHP_VERSION}
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /var/www/matomo
+    command: php -S 0.0.0.0:50003 -t .
+    networks:
+      - matomo_network
+    hostname: matomo3.local
+    ports:
+      - 50003:50003
+    volumes:
+      - ${MATOMO_PATH}:/var/www/matomo
+      - ${PLUGIN_PATH}:/var/www/matomo/plugins/ProtectTrackID
+    healthcheck:
+      test: ["CMD", "nc", "-vz", "127.0.0.1", "50003"]
+      interval: 3s
+      timeout: 1s
+      retries: 20
+  db:
+    platform: linux/amd64
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: dbpassword
+      MYSQL_DATABASE: matomo_dev
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - matomo_network
+    hostname: db.local
+    ports:
+      - 53306:3306
+    healthcheck:
+      test: mysqladmin -pdbpassword ping -h localhost
+      start_period: 5s
+      interval: 3s
+      timeout: 1s
+      retries: 20
+  pma:
+    image: phpmyadmin/phpmyadmin:5
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PMA_HOST: db.local
+      PMA_USER: root
+      PMA_PASSWORD: dbpassword
+    networks:
+      - matomo_network
+    hostname: pma.local
+    ports:
+      - 50080:80
+    healthcheck:
+      test: ["CMD", "curl", "--connect-timeout", "1", "-s", "http://127.0.0.1"]
+      interval: 3s
+      timeout: 1s
+      retries: 20
+  nginx:
+    image: nginx:1-alpine
+    networks:
+      - matomo_network
+    hostname: pma.local
+    ports:
+      - 51234:80
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html
+    healthcheck:
+      test: ["CMD", "nc", "-vz", "127.0.0.1", "80"]
+      interval: 3s
+      timeout: 1s
+      retries: 20
+
+volumes:
+  matomo_data:
+  mysql_data:
+
+networks:
+  matomo_network:
+    driver: bridge
